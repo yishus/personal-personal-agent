@@ -1,245 +1,217 @@
-# Agent Starter
+# _personal_ Personal Agent
 
-![npm i agents command](./npm-agents-banner.svg)
+> We have muse at home.
 
-<a href="https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/agents-starter"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"/></a>
+Personal personal agent allows you to run your own personal agent, mostly on Cloudflare infrastructure. Out of the box Telegram is supported as a channel and allow more channels to be integrated eg. web, WhatsApp.
 
-A starter template for building AI chat agents on Cloudflare, powered by the [Agents SDK](https://developers.cloudflare.com/agents/).
+## Examples:
 
-Uses Workers AI (no API key required), with tools for weather, timezone detection, calculations with approval, task scheduling, and vision (image input).
+- “Starting the proposal. I'm feeling distracted.” Automatically journals the original message as one entry. Intentions remain intentions, and explicit requests not to journal are respected.
+- “When did I feel overwhelmed about work?” Uses semantic retrieval after `/journal index`, with original journal entries as evidence. Exact keywords and date ranges remain available immediately through local search.
+- “Remember that I prefer morning meetings.” Saves a durable preference. “Forget my meeting preference” removes it.
+- “What's on my calendar tomorrow?” Reads the connected primary calendar.
+- “Add a focus block tomorrow from 9 to 10.” Sends an .ics draft to review and import; requires no Google connection.
+- “Summarize Alex's emails from this week and suggest a reply to the latest one.” Searches the connected Gmail account after `/email connect` and returns a summary and suggested reply text for manual sending.
+- “Research these five products and compare them.” Delegates public research without private context.
+- “Open https://example.com/contact, fill Name with Alex and Message with ‘Please send a brochure’, then click Send.” Inspects the page and proposes the exact fields and final click; `/approve ID` performs the interactions.
+- “Scroll down in the browser.” Continues the active browser while its session is alive.
+- “Track these five product URLs daily and tell me which becomes cheapest.” Uses the common scheduler with a deterministic lowest-price condition.
+- “Track this product URL daily and tell me when its price drops 20%.” Establishes a baseline on the first successful check, then compares against that original price on every later check.
+- “Send me the top ten Hacker News posts daily.” Schedules a public digest.
 
-## Quick start
+## Primitives
 
-```bash
-npx create-cloudflare@latest --template cloudflare/agents-starter
-cd agents-starter
-npm install
-npm run dev
-```
+| Primitive                  | Implementation                                 | Behavior                                                                                                                            |
+| -------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Code Mode                  | `@cloudflare/codemode`, Worker Loader          | Typed tool composition in an isolated Worker; direct outbound network disabled. Every nested tool still enforces its access checks. |
+| Web fetch                  | `agents/webfetch`                              | Cloudflare document conversion, bounded text, request deadlines, public destinations and redirect checks.                           |
+| Browser Run                | `agents/browser`                               | Render pages, or keep a per-owner interactive session for inspection/scrolling and approved clicks, field filling and selection.    |
+| Web search                 | `agents/websearch`                             | Cloudflare Web Search through AI Gateway, with a bounded result count.                                                              |
+| Typed extraction           | Workers AI Clairic                             | Extract typed values, dates, lists and estimates from supplied text, with nulls and confidence metadata.                            |
+| Structured decisions       | Workers AI Clef                                | Classify, score and make focused yes/no judgments with probabilities.                                                               |
+| Google Calendar            | Per-user OAuth connector                       | Read primary-calendar events with read-only OAuth; send .ics event drafts for manual import.                                        |
+| Email (Gmail)              | Per-user OAuth connector and isolated reader   | Search and read Gmail with read-only OAuth; summarize messages and suggest reply text for manual sending.                           |
+| Approval and execution log | SQLite action records and tool wrappers        | Frozen browser action payloads, expiry, reject/approve commands, and durable execution outcomes.                                    |
+| Goals                      | SQLite state, bounded runner and Agents alarms | Persistent objectives, progress, private updates, read-only research, run budgets, pause/resume and evidence-supported completion.  |
+| Scheduled tasks            | Agents alarms and SQLite checkpoints           | One-off, relative, local cron and interval schedules; background research, retries and cached notification delivery.                |
+| Memory                     | SQLite facts and preferences                   | Explicit remember, recall, expiry and forget operations; separate from the activity journal.                                        |
+| Journal search             | SQLite FTS5 plus optional AI Search            | Immediate lexical/date search and asynchronous semantic retrieval from a separate AI Search instance per owner.                     |
 
-> **Cloudflare authentication is required to run locally.** This template uses
-> Workers AI with `"ai": { "remote": true }` in `wrangler.jsonc`, and Workers AI
-> has no local simulator — so `npm run dev` opens a remote proxy session against
-> Cloudflare and needs you to be authenticated. Either run `wrangler login` once
-> in an interactive terminal, or set a `CLOUDFLARE_API_TOKEN` environment
-> variable (e.g. in a `.env` file). No third-party (OpenAI/Anthropic) key is
-> needed, but a Cloudflare login is.
+## Interfaces
 
-Open [http://localhost:5173](http://localhost:5173) to see your agent in action.
+Use the HTTP API, Telegram, or both. Telegram is optional and only needs to be configured if you want to use it.
 
-Try these prompts to see the different features:
+On Telegram, the agent can acknowledge requests with emoji reactions instead of sending a message. It uses 👀 while starting work and can finish with 👍 after a successful action when no explanation is needed. Findings, questions, errors, files, approval requests, and important setup details still receive a reply. Reactions target the original user message; failed reactions fall back to text. Background work continues through the existing task and goal runners.
 
-- **"What's the weather in Paris?"** — server-side tool (runs automatically)
-- **"What timezone am I in?"** — client-side tool (browser provides the answer)
-- **"Calculate 5000 \* 3"** — approval tool (asks you before running)
-- **"Remind me in 5 minutes to take a break"** — scheduling
-- **Drop an image and ask "What's in this image?"** — vision (image understanding)
+See [Channels and the HTTP API](docs/channels.md) for setup, curl examples, structured actions, retention, and instructions for adding an adapter.
 
-## Project structure
+Remote MCP connections are configured through `POST /api/mcp/servers`, with authenticated list/inspect/delete endpoints. Only API tokens explicitly granted `permissions: ["mcp:manage"]` can administer connections; ordinary tokens are denied by default. Public servers, authentication headers, Streamable HTTP/SSE, and browser-based OAuth are supported. The bot can use the connected tools in an isolated session; setup and removal stay in REST. See [MCP setup and access control](docs/channels.md#manage-mcp-connections).
 
-```
-src/
-  server.ts    # Chat agent with tools and scheduling
-  app.tsx      # Chat UI built with Kumo components
-  client.tsx   # React entry point
-  styles.css   # Tailwind + Kumo styles
-```
+## Deploy to Cloudflare
 
-## What's included
+This deploys a fresh Worker and its SQLite-backed Durable Objects. You need Node.js 22.18+, pnpm, a [Cloudflare account](https://dash.cloudflare.com/), and provider accounts for OpenRouter and Exa. A custom domain is optional; the deployed `workers.dev` URL works with both interfaces.
 
-- **AI Chat** — Streaming responses powered by Workers AI via `AIChatAgent`
-- **Image input** — Drag-and-drop, paste, or click to attach images for vision-capable models
-- **Three tool patterns** — server-side auto-execute, client-side (browser), and human-in-the-loop approval
-- **Scheduling** — one-time, delayed, and recurring (cron) tasks
-- **Reasoning display** — shows model thinking as it streams, collapses when done
-- **Debug mode** — toggle in the header to inspect raw message JSON for each message
-- **Kumo UI** — Cloudflare's design system with dark/light mode
-- **Real-time** — WebSocket connection with automatic reconnection and message persistence
+### 1. Prepare the project
 
-## Making it your own
-
-### Name your project
-
-Update the name in `package.json` and `wrangler.jsonc` — the `name` in `wrangler.jsonc` becomes your deployed Worker's URL (`<name>.<subdomain>.workers.dev`).
-
-### Change the system prompt
-
-Edit the `system` string in `server.ts` to give your agent a different personality or focus area. This is the most impactful single change you can make.
-
-### Replace the demo tools with real ones
-
-The starter ships with demo tools (`getWeather` returns random data, `calculate` does basic arithmetic). Replace them with real implementations:
-
-```ts
-// In server.ts, replace a demo tool with a real API call:
-getWeather: tool({
-  description: "Get the current weather for a city",
-  inputSchema: z.object({ city: z.string() }),
-  execute: async ({ city }) => {
-    const res = await fetch(`https://api.weather.example/${city}`);
-    return res.json();
-  }
-}),
-```
-
-### Add your own tools
-
-Add new tools to the `tools` object in `server.ts`. There are three patterns:
-
-```ts
-// Auto-execute: runs on the server, no user interaction
-myTool: tool({
-  description: "...",
-  inputSchema: z.object({ /* ... */ }),
-  execute: async (input) => { /* return result */ }
-}),
-
-// Client-side: no execute function, browser provides the result
-// Handle it in app.tsx via the onToolCall callback
-browserTool: tool({
-  description: "...",
-  inputSchema: z.object({ /* ... */ })
-}),
-
-// Approval: add needsApproval to gate execution
-sensitiveTool: tool({
-  description: "...",
-  inputSchema: z.object({ /* ... */ }),
-  needsApproval: async (input) => true, // or conditional logic
-  execute: async (input) => { /* runs after approval */ }
-}),
-```
-
-### Customize scheduled task behavior
-
-When a scheduled task fires, `executeTask` runs on the server. It does its work and then uses `this.broadcast()` to notify connected clients (shown as a toast notification in the UI). Replace it with your own logic:
-
-```ts
-async executeTask(description: string, task: Schedule<string>) {
-  // Do the actual work
-  await sendEmail({ to: "user@example.com", subject: description });
-
-  // Notify connected clients
-  this.broadcast(
-    JSON.stringify({ type: "scheduled-task", description, timestamp: new Date().toISOString() })
-  );
-}
-```
-
-> **Why `broadcast()` instead of `saveMessages()`?** Injecting into chat history can cause the AI to see the notification as new context and re-trigger the same task in a loop. `broadcast()` sends a one-off event that the client displays separately from the conversation.
-
-### Remove scheduling
-
-If you don't need scheduling, remove `scheduleTask`, `getScheduledTasks`, and `cancelScheduledTask` from the tools object, the `executeTask` method, and the schedule-related imports (`getSchedulePrompt`, `scheduleSchema`, `Schedule`).
-
-### Add state beyond chat messages
-
-Use `this.setState()` and `this.state` for real-time state that syncs to all connected clients. See [Store and sync state](https://developers.cloudflare.com/agents/api-reference/store-and-sync-state/).
-
-### Add callable methods
-
-Expose agent methods as typed RPC that your client can call directly:
-
-```ts
-import { callable } from "agents";
-
-export class ChatAgent extends AIChatAgent<Env> {
-  @callable()
-  async getStats() {
-    return { messageCount: this.messages.length };
-  }
-}
-
-// Client-side:
-const stats = await agent.call("getStats");
-```
-
-See [Callable methods](https://developers.cloudflare.com/agents/api-reference/callable-methods/).
-
-### Connect to MCP servers
-
-Add external tools from MCP servers:
-
-```ts
-async onChatMessage(onFinish, options) {
-  // Connect to an MCP server
-  await this.mcp.connect("https://my-mcp-server.example/sse");
-
-  const result = streamText({
-    // ...
-    tools: {
-      ...myTools,
-      ...this.mcp.getAITools() // Include MCP tools
-    }
-  });
-}
-```
-
-See [MCP Client API](https://developers.cloudflare.com/agents/api-reference/mcp-client-api/).
-
-## Use a different AI model provider
-
-The starter uses [Workers AI](https://developers.cloudflare.com/workers-ai/) by default (no API key needed). To use a different provider:
-
-### OpenAI
+From the repository root, run:
 
 ```bash
-npm install @ai-sdk/openai
+pnpm install
+cp wrangler.jsonc.example wrangler.jsonc
+cp .dev.vars.example .dev.vars
+pnpm exec wrangler login
+pnpm exec wrangler whoami
 ```
 
-```ts
-// In server.ts, replace the model:
-import { openai } from "@ai-sdk/openai";
+### 2. Configure AI Gateway and provider keys
 
-// Inside onChatMessage:
-const result = streamText({
-  model: openai("gpt-5.2")
-  // ...
-});
+In the same Cloudflare account, go to **AI → AI Gateway** and [create a gateway](https://developers.cloudflare.com/ai-gateway/configuration/manage-gateway/). Enable gateway authentication for [stored provider keys](https://developers.cloudflare.com/ai-gateway/configuration/bring-your-own-keys/), then add these under **Provider Keys**:
+
+| Provider   | Key alias | Used for                                        |
+| ---------- | --------- | ----------------------------------------------- |
+| OpenRouter | `default` | Chat and research using `meta/muse-spark-open`. |
+| Exa        | `default` | Web search.                                     |
+
+Update `AT_GATEWAY_ID` in `.dev.vars` with the gateway ID set in this step.
+
+### 3. Review Configuration
+
+The template already declares the bindings used by the application:
+
+| Binding     | Cloudflare resource | Purpose                                                                     |
+| ----------- | ------------------- | --------------------------------------------------------------------------- |
+| `AI`        | Workers AI          | Gateway model calls, web search, document conversion, and typed extraction. |
+| `ChatAgent` | Durable Object      | Per-owner storage, inbox processing, goals, and task alarms.                |
+| `BROWSER`   | Browser Run         | Render pages and perform approved browser interactions.                     |
+| `AI_SEARCH` | AI Search namespace | Optional semantic journal indexing and search.                              |
+
+`AI_SEARCH` points to the account's automatically created [`default` namespace](https://developers.cloudflare.com/ai-search/concepts/namespaces/). The agent creates an instance per owner when `/journal index` is used. To use a separate namespace, [create one](https://developers.cloudflare.com/ai-search/wrangler-commands/) and update `ai_search_namespaces[].namespace` in `wrangler.jsonc`. Ordinary journal storage and lexical search do not require semantic indexing.
+
+Code Mode is optional and disabled in the template. To enable it, use a [Workers Paid plan](https://developers.cloudflare.com/dynamic-workers/pricing/) and uncomment this property in `wrangler.jsonc`:
+
+```jsonc
+"worker_loaders": [{ "binding": "LOADER" }],
 ```
 
-Create a `.env` file with your API key:
-
-```
-OPENAI_API_KEY=your-key-here
-```
-
-### Anthropic
+### 4. Create the Worker and Durable Object namespace
 
 ```bash
-npm install @ai-sdk/anthropic
+pnpm types
+pnpm check
+pnpm exec wrangler deploy --dry-run
+pnpm deploy
+pnpm exec wrangler secret put AI_GATEWAY_ID
 ```
-
-```ts
-import { anthropic } from "@ai-sdk/anthropic";
-
-const result = streamText({
-  model: anthropic("claude-sonnet-4-20250514")
-  // ...
-});
-```
-
-Create a `.env` file with your API key:
-
-```
-ANTHROPIC_API_KEY=your-key-here
-```
-
-## Deploy
 
 ```bash
-npm run deploy
+curl --fail https://personal-personal-agent.YOUR-SUBDOMAIN.workers.dev/health
 ```
 
-Your agent is live on Cloudflare's global network. Messages persist in SQLite, streams resume on disconnect, and the agent hibernates when idle.
+Expect `ok`.
 
-## Learn more
+### 5. Configure your interfaces
 
-- [Agents SDK documentation](https://developers.cloudflare.com/agents/)
-- [Build a chat agent tutorial](https://developers.cloudflare.com/agents/getting-started/build-a-chat-agent/)
-- [Chat agents API reference](https://developers.cloudflare.com/agents/api-reference/chat-agents/)
-- [Workers AI models](https://developers.cloudflare.com/workers-ai/models/)
+Configure at least one of the following interfaces. You can enable both on the same Worker.
 
-## License
+#### HTTP API (optional)
 
-MIT
+If you want to use the HTTP API, generate a token with `openssl rand -hex 32`, then follow [account and token configuration](docs/channels.md#http-only-setup) to prepare the `API_ACCOUNTS` JSON. Upload it to the Worker:
+
+```bash
+pnpm exec wrangler secret put API_ACCOUNTS
+```
+
+For local development, also add `API_ACCOUNTS` to `.dev.vars` as shown in that guide. If you only want the HTTP API, skip the Telegram section and continue to step 7.
+
+#### Telegram setup (optional)
+
+Only complete this section if you want to use Telegram. An HTTP-only deployment needs no Telegram bot, secrets, or webhook. The Cloudflare login, configuration files, Worker, and gateway are already set up by the preceding steps.
+
+1. Open [@BotFather](https://t.me/BotFather) in Telegram and send `/newbot`. Choose a name and username, then copy the bot token. See Telegram's [bot creation guide](https://core.telegram.org/bots/features#creating-a-new-bot).
+
+2. Generate a separate webhook secret with `openssl rand -hex 32`. Determine your numeric Telegram user ID, then add these values to the existing `.dev.vars` file:
+
+   ```dotenv
+   TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+   TELEGRAM_WEBHOOK_SECRET=your-generated-hex-secret
+   TELEGRAM_ALLOWED_USER_IDS=123456789
+   ```
+
+   For multiple users, use comma-separated numeric IDs in `TELEGRAM_ALLOWED_USER_IDS`.
+
+3. Upload the Telegram production secrets. Paste the corresponding value from `.dev.vars` at each prompt:
+
+   ```bash
+   pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN
+   pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET
+   pnpm exec wrangler secret put TELEGRAM_ALLOWED_USER_IDS
+   ```
+
+4. Register the deployed Worker URL, replacing the example below with the HTTPS URL printed in step 4:
+
+   ```bash
+   pnpm telegram:webhook https://personal-personal-agent.YOUR-SUBDOMAIN.workers.dev
+   ```
+
+   The script reads the bot token and webhook secret from `.dev.vars` or your shell environment. It registers `/telegram/webhook` and the bot's command menu. The webhook secret must match the value uploaded to Cloudflare.
+
+5. Send `/start` to your bot, then set your timezone, for example `/timezone Asia/Singapore`. Type `/` to see available commands.
+
+If the bot does not reply, check that `https://YOUR-WORKER/health` returns `ok`, your numeric user ID is allowlisted, and the local and deployed webhook secrets match. Rerun `pnpm telegram:webhook https://YOUR-WORKER` whenever the Worker URL or webhook secret changes.
+
+### 7. Verify the agent
+
+Send a normal chat request and a web research request through your chosen interface to verify both model and search credentials. For the HTTP API, see [submitting a message](docs/channels.md#submit-a-message) and [reading replies](docs/channels.md#read-replies-and-notifications). The first message invokes the owner's `ChatAgent` object.
+
+For deployment or request errors, inspect the terminal output and live logs:
+
+```bash
+pnpm exec wrangler tail
+```
+
+Run `pnpm deploy` again to publish later code changes to the same Worker. Rerun `pnpm types` whenever bindings change.
+
+Google Calendar and Gmail are optional. Their shared OAuth credentials, signing secrets, and authorized redirect URLs are listed in [.dev.vars.example](.dev.vars.example). Set `PUBLIC_BASE_URL` to the deployed Worker's HTTPS origin when enabling those connectors.
+
+## Commands and examples
+
+| Command                                      | Behavior                                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| `/timezone Asia/Singapore`                   | Save an IANA timezone; omit the argument to inspect it.                           |
+| `/journal [YYYY-MM-DD]`                      | Read a day; default to today in the saved timezone, or UTC.                       |
+| `/journal export [YYYY-MM-DD]`               | Send a day's Markdown document.                                                   |
+| `/journal index`                             | Enable semantic indexing and backfill existing journal entries.                   |
+| `/calendar connect` / `/calendar disconnect` | Manage the read-only Google Calendar connection.                                  |
+| `/email connect`                             | Connect Gmail with read-only access.                                              |
+| `/email status`                              | Inspect the Gmail connection status.                                              |
+| `/email ask <request>`                       | Search or summarize email, or suggest reply text for manual sending.              |
+| `/email disconnect`                          | Disconnect Gmail and Calendar and revoke their shared Google access.              |
+| `/browser close`                             | Close the interactive browser and discard its tabs, cookies and page state.       |
+| `/approvals`                                 | Review pending actions and their exact saved payloads.                            |
+| `/approve ID` / `/reject ID`                 | Execute or decline a proposal. These commands bypass the model.                   |
+| `/log`                                       | Inspect the latest 20 tool and scheduled execution outcomes.                      |
+| `/goals`                                     | List goals, their status and run budgets.                                         |
+| `/goal ID`                                   | Show goal progress, history and available controls.                               |
+| `/goal update ID <progress>`                 | Add private progress or answer a goal question; wake it when allowed.             |
+| `/goal pause/resume/cancel/complete ID`      | Manage a goal or explicitly mark it complete.                                     |
+| `/goal budget ID <total>`                    | Change the total run budget without resetting runs used.                          |
+| `/goal deadline ID <ISO timestamp or none>`  | Set or remove the goal deadline.                                                  |
+| `/goal research ID <public request or off>`  | Set the exact public research scope or disable it.                                |
+| `/tasks` / `/cancel ID`                      | Inspect or cancel scheduled work.                                                 |
+| `/reset`                                     | Clear conversation history; retain journal, memory, tasks, goals and connections. |
+
+Set a timezone before using local clock schedules. Relative delays, explicit offset timestamps and fixed intervals do not need one. Cron schedules retain their original timezone, including daylight saving behavior.
+
+## Development
+
+```bash
+pnpm dev
+pnpm test
+pnpm check
+pnpm exec wrangler deploy --dry-run
+pnpm types
+```
+
+Run `pnpm types` whenever bindings change. Local routes are `GET /health`, optional `POST /telegram/webhook`, authenticated `POST /api/messages`, `GET /api/events`, `GET /api/files/:id`, the MCP management routes under `/api/mcp/servers`, and Google/MCP OAuth callbacks.
+
+The implementation lives in `src/server.ts` (routing and durable orchestration), `instructions.ts` (agent policy), `execution.ts` (approvals/log), `research.ts` (public tools and Code Mode), `browser.ts` (interactive browser and frozen proposals), `structured-ai.ts` (Clairic/Clef adapters), `calendar.ts`, `memory.ts`, `journal.ts`, `journal-index.ts`, `tasks.ts`, `goals.ts`, `goal-runner.ts`, `price-research.ts`, and `prices.ts` (deterministic comparisons).

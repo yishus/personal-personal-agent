@@ -1,8 +1,8 @@
 {
-  "name": "agent-starter",
+  "name": "personal-personal-agent",
   "version": "1.0.0",
   "private": true,
-  "description": "Starter template for building AI chat agents on Cloudflare",
+  "description": "Self-hosted personal AI agent with Telegram and HTTP interfaces on Cloudflare Workers",
   "keywords": [
     "agents",
     "ai",
@@ -11,42 +11,33 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "start": "vite dev",
-    "deploy": "vite build && wrangler deploy",
+    "dev": "wrangler dev --config wrangler.jsonc",
+    "start": "wrangler dev --config wrangler.jsonc",
+    "deploy": "wrangler deploy --config wrangler.jsonc",
     "types": "wrangler types env.d.ts",
+    "telegram:webhook": "node --env-file-if-exists=.dev.vars scripts/register-webhook.mjs",
     "format": "oxfmt --write .",
     "lint": "oxlint src/",
-    "check": "oxfmt --check . && oxlint src/ && tsc"
+    "check": "oxfmt --check src scripts package.json tsconfig.json wrangler.jsonc README.md && oxlint src/ && tsc"
   },
   "dependencies": {
-    "@cloudflare/ai-chat": "^0.9.3",
-    "@cloudflare/kumo": "^2.6.0",
-    "@phosphor-icons/react": "^2.1.10",
-    "@streamdown/code": "^1.1.1",
-    "agents": "^0.17.4",
+    "@ai-sdk/openai": "^3.0.129",
+    "@cloudflare/codemode": "^0.5.4",
+    "agents": "0.28.1",
     "ai": "^6.0.197",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "streamdown": "^2.5.0",
-    "workers-ai-provider": "^3.2.1",
+    "croner": "^10.0.0",
+    "workers-ai-provider": "^3.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^8.0.2",
-    "@cloudflare/vite-plugin": "^1.46.0",
-    "@rolldown/plugin-babel": "^0.2.3",
-    "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^26.0.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
-    "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
-    "vite": "^8.1.0",
     "wrangler": "^4.151.1"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   },
   "allowScripts": {
     "core-js-pure@3.49.0": true,

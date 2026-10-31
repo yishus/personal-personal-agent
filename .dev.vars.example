@@ -1,0 +1,34 @@
+# Copy to .dev.vars for local development. Enable either interface, or both.
+# HTTP API (optional): generate each token with `openssl rand -hex 32`.
+# Upload API_ACCOUNTS as a Worker secret in production.
+# API_ACCOUNTS='[{"ownerId":"owner:alice","token":"replace-with-a-random-token-of-at-least-32-characters"}]'
+# Only selected tokens should have permissions:["mcp:manage"] to add/list/delete
+# MCP connections through /api/mcp/servers. Tokens omit this permission by default.
+# A separate admin token can share the same ownerId with a normal chat token.
+# To link HTTP and Telegram to the same owner's data, use ownerId
+# "telegram:YOUR_PRIVATE_CHAT_ID". See docs/channels.md.
+
+# Telegram (optional): omit these variables for an HTTP-only deployment.
+# TELEGRAM_BOT_TOKEN=replace-with-token-from-botfather
+# TELEGRAM_WEBHOOK_SECRET=replace-with-a-random-hex-string
+# Comma-separated numeric Telegram user IDs (one or more).
+# TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
+# Required: set the ID of your AI Gateway, which stores your OpenRouter provider key.
+# In production, upload AI_GATEWAY_ID with `pnpm exec wrangler secret put AI_GATEWAY_ID`.
+# AI_GATEWAY_ID=your-ai-gateway-id
+
+# Optional Google Calendar and Gmail connectors share one Web application OAuth client.
+# Enable both Calendar API and Gmail API in the same project.
+# Authorized redirects (register BOTH on this client):
+# PUBLIC_BASE_URL/connectors/google/callback
+# PUBLIC_BASE_URL/connectors/gmail/callback
+# Either disconnect command revokes both services. .ics drafts need no Google configuration.
+# Upload these values as Worker secrets for production.
+# GOOGLE_CLIENT_ID=your-google-oauth-client-id
+# GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+# CALENDAR_STATE_SECRET=generate-a-separate-random-32-byte-secret
+# PUBLIC_BASE_URL=https://personal-personal-agent.YOUR-SUBDOMAIN.workers.dev
+
+# Gmail uses GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET above.
+# Keep a separate signing secret for Gmail's connection links (not another OAuth client).
+# EMAIL_STATE_SECRET=generate-a-separate-random-32-byte-secret
