@@ -21,27 +21,26 @@ Personal personal agent allows you to run your own personal agent, mostly on Clo
 
 ## Primitives
 
-| Primitive                  | Implementation                                 | Behavior                                                                                                                            |
-| -------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Code Mode                  | `@cloudflare/codemode`, Worker Loader          | Typed tool composition in an isolated Worker; direct outbound network disabled. Every nested tool still enforces its access checks. |
-| Web fetch                  | `agents/webfetch`                              | Cloudflare document conversion, bounded text, request deadlines, public destinations and redirect checks.                           |
-| Browser Run                | `agents/browser`                               | Render pages, or keep a per-owner interactive session for inspection/scrolling and approved clicks, field filling and selection.    |
-| Web search                 | `agents/websearch`                             | Cloudflare Web Search through AI Gateway, with a bounded result count.                                                              |
-| Typed extraction           | Workers AI Clairic                             | Extract typed values, dates, lists and estimates from supplied text, with nulls and confidence metadata.                            |
-| Structured decisions       | Workers AI Clef                                | Classify, score and make focused yes/no judgments with probabilities.                                                               |
-| Google Calendar            | Per-user OAuth connector                       | Read primary-calendar events with read-only OAuth; send .ics event drafts for manual import.                                        |
-| Email (Gmail)              | Per-user OAuth connector and isolated reader   | Search and read Gmail with read-only OAuth; summarize messages and suggest reply text for manual sending.                           |
-| Approval and execution log | SQLite action records and tool wrappers        | Frozen browser action payloads, expiry, reject/approve commands, and durable execution outcomes.                                    |
-| Goals                      | SQLite state, bounded runner and Agents alarms | Persistent objectives, progress, private updates, read-only research, run budgets, pause/resume and evidence-supported completion.  |
-| Scheduled tasks            | Agents alarms and SQLite checkpoints           | One-off, relative, local cron and interval schedules; background research, retries and cached notification delivery.                |
-| Memory                     | SQLite facts and preferences                   | Explicit remember, recall, expiry and forget operations; separate from the activity journal.                                        |
-| Journal search             | SQLite FTS5 plus optional AI Search            | Immediate lexical/date search and asynchronous semantic retrieval from a separate AI Search instance per owner.                     |
+| Primitive                  | Implementation                                  | Behavior                                                                                                                              |
+| -------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Code Mode                  | `@cloudflare/codemode`, Worker Loader           | Typed tool composition in an isolated Worker; direct outbound network disabled. Every nested tool still enforces its access checks.   |
+| Web fetch                  | `agents/webfetch`                               | Cloudflare document conversion, bounded text, request deadlines, public destinations and redirect checks.                             |
+| Browser Run                | `agents/browser`                                | Render pages, or keep a per-owner interactive session for inspection/scrolling and approved clicks, field filling and selection.      |
+| Web search                 | `agents/websearch`                              | Cloudflare Web Search through AI Gateway, with a bounded result count.                                                                |
+| Typed extraction           | Workers AI Clairic                              | Extract typed values, dates, lists and estimates from supplied text, with nulls and confidence metadata.                              |
+| Structured decisions       | Workers AI Clef                                 | Classify, score and make focused yes/no judgments with probabilities.                                                                 |
+| Google Calendar            | Per-user OAuth connector                        | Read primary-calendar events with read-only OAuth; send .ics event drafts for manual import.                                          |
+| Email (Gmail)              | Per-user OAuth connector and isolated reader    | Search and read Gmail with read-only OAuth; summarize messages and suggest reply text for manual sending.                             |
+| MCP                        | Agents SDK MCP client and isolated tool session | Remote tools configured through REST with owner-scoped `mcp:manage` access; persistent connections, authentication headers and OAuth. |
+| Approval and execution log | SQLite action records and tool wrappers         | Frozen browser action payloads, expiry, reject/approve commands, and durable execution outcomes.                                      |
+| Goals                      | SQLite state, bounded runner and Agents alarms  | Persistent objectives, progress, private updates, read-only research, run budgets, pause/resume and evidence-supported completion.    |
+| Scheduled tasks            | Agents alarms and SQLite checkpoints            | One-off, relative, local cron and interval schedules; background research, retries and cached notification delivery.                  |
+| Memory                     | SQLite facts and preferences                    | Explicit remember, recall, expiry and forget operations; separate from the activity journal.                                          |
+| Journal search             | SQLite FTS5 plus optional AI Search             | Immediate lexical/date search and asynchronous semantic retrieval from a separate AI Search instance per owner.                       |
 
 ## Interfaces
 
 Use the HTTP API, Telegram, or both. Telegram is optional and only needs to be configured if you want to use it.
-
-On Telegram, the agent can acknowledge requests with emoji reactions instead of sending a message. It uses 👀 while starting work and can finish with 👍 after a successful action when no explanation is needed. Findings, questions, errors, files, approval requests, and important setup details still receive a reply. Reactions target the original user message; failed reactions fall back to text. Background work continues through the existing task and goal runners.
 
 See [Channels and the HTTP API](docs/channels.md) for setup, curl examples, structured actions, retention, and instructions for adding an adapter.
 
